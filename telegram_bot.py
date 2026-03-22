@@ -7,7 +7,7 @@ from telegram.ext import (
     ContextTypes, MessageHandler, filters
 )
 
-BOT_TOKEN = "8787082521:AAFQGwgvK0zCWDm7UW5cHhsJgUxeG0d6Qwg"
+BOT_TOKEN = "8787082521:AAH2K7_7Y0zLnU77luIKJk_HjDkReGfqwQg"
 PINTEREST_LINK = "https://pin.it/5GtgARcTs"
 INFO_CHANNEL_LINK = "https://t.me/yourchannel"
 ADMIN_ID = 7575318765

@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+import asyncio
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler,
+    ContextTypes, MessageHandler, filters
+)
+
+BOT_TOKEN = "8787082521:AAFQGwgvK0zCWDm7UW5cHhsJgUxeG0d6Qwg"
+PINTEREST_LINK = "https://pin.it/5GtgARcTs"
+INFO_CHANNEL_LINK = "https://t.me/yourchannel"
+ADMIN_ID = 7575318765
+VIDEO_DELETE_SECONDS = 300
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+stored_video = {}
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("📌 Pinterest Subscribe", url=PINTEREST_LINK)],
+        [InlineKeyboardButton("📢 Info Channel Join", url=INFO_CHANNEL_LINK)],
+        [InlineKeyboardButton("🎬 Video Dekhein", callback_data="watch_video")],
+    ]
+    await update.message.reply_text(
+        "👋 *Welcome!*\n\n"
+        "📌 Pinterest subscribe karein\n"
+        "📢 Info Channel join karein\n"
+        "🎬 Video dekhein _(5 min baad delete hogi!)_",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def watch_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not stored_video.get("file_id"):
+        await query.message.reply_text("⚠️ Abhi koi video nahi hai. Baad mein try karein!")
+        return
+    sent = await query.message.reply_video(
+        video=stored_video["file_id"],
+        caption=(
+            f"{stored_video.get('caption', '🎬 Special Video')}\n\n"
+            "⏳ *5 minute baad delete ho jaegi!*"
+        ),
+        parse_mode="Markdown"
+    )
+    asyncio.create_task(delete_after_timer(context, sent.chat_id, sent.message_id))
+
+
+async def delete_after_timer(context, chat_id, message_id):
+    await asyncio.sleep(VIDEO_DELETE_SECONDS)
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        notice = await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "🗑️ *Video delete ho gayi!*\n\n"
+                f"📌 [Pinterest]({PINTEREST_LINK})\n"
+                f"📢 [Info Channel]({INFO_CHANNEL_LINK})"
+            ),
+            parse_mode="Markdown"
+        )
+        await asyncio.sleep(60)
+        await context.bot.delete_message(chat_id=chat_id, message_id=notice.message_id)
+    except Exception as e:
+        logger.warning(f"Delete error: {e}")
+
+
+async def receive_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    video = update.message.video or update.message.document
+    if video:
+        stored_video["file_id"] = video.file_id
+        stored_video["caption"] = update.message.caption or "🎬 Special Video"
+        await update.message.reply_text("✅ *Video save ho gayi!* 5 min baad auto-delete hogi!", parse_mode="Markdown")
+
+
+async def setvideo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    await update.message.reply_text("📤 Ab video bhejo!")
+
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    if stored_video.get("file_id"):
+        await update.message.reply_text(f"✅ Video available hai!\nCaption: {stored_video.get('caption')}")
+    else:
+        await update.message.reply_text("❌ Koi video set nahi hai.")
+
+
+async def setchannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    global INFO_CHANNEL_LINK
+    if context.args:
+        INFO_CHANNEL_LINK = context.args[0]
+        await update.message.reply_text(f"✅ Channel update ho gaya: {INFO_CHANNEL_LINK}")
+    else:
+        await update.message.reply_text("Example: /setchannel https://t.me/apnachannel")
+
+
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("setvideo", setvideo))
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("setchannel", setchannel))
+    app.add_handler(CallbackQueryHandler(watch_video, pattern="^watch_video$"))
+    app.add_handler(MessageHandler(filters.VIDEO | filters.Document.VIDEO, receive_video))
+    print("🤖 Bot chal raha hai!")
+    app.run_polling(drop_pending_updates=True)
+
+
+if __name__ == "__main__":
+    main()

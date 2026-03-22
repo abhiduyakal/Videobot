@@ -39,8 +39,7 @@ async def watch_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=f"{stored_video.get('caption', '🎬 Special Video')}\n\n⏳ *5 minute baad delete ho jaegi!*",
         parse_mode="Markdown"
     )
-    loop = asyncio.get_event_loop()
-    loop.create_task(delete_later(context.bot, sent.chat_id, sent.message_id))
+    asyncio.ensure_future(delete_later(context.bot, sent.chat_id, sent.message_id))
 
 
 async def delete_later(bot, chat_id, message_id):

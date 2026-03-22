@@ -39,27 +39,21 @@ async def watch_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=f"{stored_video.get('caption', '🎬 Special Video')}\n\n⏳ *5 minute baad delete ho jaegi!*",
         parse_mode="Markdown"
     )
-    context.job_queue.run_once(delete_video_job, VIDEO_DELETE_SECONDS, data={"chat_id": sent.chat_id, "message_id": sent.message_id})
+    loop = asyncio.get_event_loop()
+    loop.create_task(delete_later(context.bot, sent.chat_id, sent.message_id))
 
 
-async def delete_video_job(context: ContextTypes.DEFAULT_TYPE):
-    data = context.job.data
+async def delete_later(bot, chat_id, message_id):
+    await asyncio.sleep(VIDEO_DELETE_SECONDS)
     try:
-        await context.bot.delete_message(chat_id=data["chat_id"], message_id=data["message_id"])
-        notice = await context.bot.send_message(
-            chat_id=data["chat_id"],
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        notice = await bot.send_message(
+            chat_id=chat_id,
             text=f"🗑️ *Video delete ho gayi!*\n\n📌 [Pinterest]({PINTEREST_LINK})\n📢 [Info Channel]({INFO_CHANNEL_LINK})",
             parse_mode="Markdown"
         )
-        context.job_queue.run_once(delete_notice_job, 60, data={"chat_id": data["chat_id"], "message_id": notice.message_id})
-    except Exception as e:
-        logger.warning(f"Error: {e}")
-
-
-async def delete_notice_job(context: ContextTypes.DEFAULT_TYPE):
-    data = context.job.data
-    try:
-        await context.bot.delete_message(chat_id=data["chat_id"], message_id=data["message_id"])
+        await asyncio.sleep(60)
+        await bot.delete_message(chat_id=chat_id, message_id=notice.message_id)
     except Exception as e:
         logger.warning(f"Error: {e}")
 
